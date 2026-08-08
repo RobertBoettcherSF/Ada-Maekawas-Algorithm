@@ -73,7 +73,7 @@ package body Maekawa is
       Q.Items(Q.Count) := Item;
       -- DEBUG: print enqueue info
       Put_Line("DEBUG: Enqueue_Request -> New Count = " & Natural'Image(Q.Count));
-      Put_Line("DEBUG: Enqueue_Request -> Item.Node = " & Integer'Image(Item.Node) & " Item.Timestamp = " & Integer'Image(Item.Timestamp));
+      Put_Line("DEBUG: Enqueue_Request -> Item.Node = " & Integer'Image(Integer(Item.Node)) & " Item.Timestamp = " & Integer'Image(Item.Timestamp));
       
       -- Bubble sort to maintain priority (lower timestamp = higher priority)
       for I in reverse 2 .. Q.Count loop
@@ -168,7 +168,7 @@ package body Maekawa is
          Enqueue_Event(System, (Msg_Reply, Receiver, Sender, 0));
       else
          -- DEBUG: Log enqueueing action in Handle_Request
-         Put_Line("DEBUG: Handle_Request - Enqueueing Sender " & Integer'Image(Sender) & " into Receiver " & Integer'Image(Receiver) & " queue with TS " & Integer'Image(TS));
+         Put_Line("DEBUG: Handle_Request - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(TS));
          Enqueue_Request(System.Nodes(Receiver).Queue, (Sender, TS));
          
          -- Check priority for deadlock avoidance (lower TS = higher priority)
