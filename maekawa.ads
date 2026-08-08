@@ -47,7 +47,7 @@ package Maekawa is
       Timestamp     : Integer := 0;
       Replies_Count : Natural := 0;
       Quorum_Size   : Natural := 0;
-      Quorum        : array (1 .. Max_Nodes) of Node_Id := (others => 0);
+      Quorum        : Quorum_Array(1 .. Max_Nodes) := (others => 0);
       Queue         : Request_Queue;
    end record;
 
