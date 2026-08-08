@@ -12,7 +12,8 @@ package Maekawa is
    type Node_Id is new Integer range 0 .. Max_Nodes;
    subtype Valid_Node_Id is Node_Id range 1 .. Max_Nodes;
 
-   type Quorum_Array is array (Positive range <>) of Valid_Node_Id;
+   -- Quorum_Array now allows Node_Id so 0 can be used as an "empty" sentinel
+   type Quorum_Array is array (Positive range <>) of Node_Id;
    
    type Message_Kind is 
      (Msg_Request, 
