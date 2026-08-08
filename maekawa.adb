@@ -2,6 +2,8 @@ with Ada.Text_IO; use Ada.Text_IO;
 -- src/maekawa.adb
 package body Maekawa is
 
+   Debug_Enable : constant Boolean := False;
+
    procedure Initialize (System : out Maekawa_System) is
    begin
       System.Events.Count := 0;
@@ -72,8 +74,10 @@ package body Maekawa is
       Q.Count := Q.Count + 1;
       Q.Items(Q.Count) := Item;
       -- DEBUG: print enqueue info
-      Put_Line("DEBUG: Enqueue_Request -> New Count = " & Natural'Image(Q.Count));
-      Put_Line("DEBUG: Enqueue_Request -> Item.Node = " & Integer'Image(Integer(Item.Node)) & " Item.Timestamp = " & Integer'Image(Item.Timestamp));
+      if Debug_Enable then
+         Put_Line("DEBUG: Enqueue_Request -> New Count = " & Natural'Image(Q.Count));
+         Put_Line("DEBUG: Enqueue_Request -> Item.Node = " & Integer'Image(Integer(Item.Node)) & " Item.Timestamp = " & Integer'Image(Item.Timestamp));
+      end if;
       
       -- Bubble sort to maintain priority (lower timestamp = higher priority)
       for I in reverse 2 .. Q.Count loop
@@ -114,7 +118,9 @@ package body Maekawa is
                                    Timestamp => TS));
          end if;
       end loop;
-      Put_Line("DEBUG: Request_CS - Node " & Integer'Image(Integer(Node)) & " Replies_Count=" & Natural'Image(System.Nodes(Node).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Node).Quorum_Size));
+      if Debug_Enable then
+         Put_Line("DEBUG: Request_CS - Node " & Integer'Image(Integer(Node)) & " Replies_Count=" & Natural'Image(System.Nodes(Node).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Node).Quorum_Size));
+      end if;
    end Request_CS;
 
    procedure Release_CS (System : in out Maekawa_System; Node : Valid_Node_Id) is
@@ -168,11 +174,15 @@ package body Maekawa is
       if not System.Nodes(Receiver).Voted then
          System.Nodes(Receiver).Voted := True;
          System.Nodes(Receiver).Voted_For := Node_Id(Sender);
-         Put_Line("DEBUG: GRANT from Receiver " & Integer'Image(Integer(Receiver)) & " -> Sender " & Integer'Image(Integer(Sender)));
+         if Debug_Enable then
+            Put_Line("DEBUG: GRANT from Receiver " & Integer'Image(Integer(Receiver)) & " -> Sender " & Integer'Image(Integer(Sender)));
+         end if;
          Enqueue_Event(System, (Msg_Reply, Receiver, Sender, 0));
       else
          -- DEBUG: Log enqueueing action in Handle_Request
-         Put_Line("DEBUG: Handle_Request - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(TS));
+         if Debug_Enable then
+            Put_Line("DEBUG: Handle_Request - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(TS));
+         end if;
          Enqueue_Request(System.Nodes(Receiver).Queue, (Sender, TS));
          
          -- Check priority for deadlock avoidance (lower TS = higher priority)
@@ -191,7 +201,9 @@ package body Maekawa is
    procedure Handle_Reply (System : in out Maekawa_System; Sender, Receiver : Valid_Node_Id) is
    begin
       System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count + 1;
-      Put_Line("DEBUG: Handle_Reply - Receiver " & Integer'Image(Integer(Receiver)) & " Replies_Count=" & Natural'Image(System.Nodes(Receiver).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Receiver).Quorum_Size));
+      if Debug_Enable then
+         Put_Line("DEBUG: Handle_Reply - Receiver " & Integer'Image(Integer(Receiver)) & " Replies_Count=" & Natural'Image(System.Nodes(Receiver).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Receiver).Quorum_Size));
+      end if;
       if System.Nodes(Receiver).Replies_Count = System.Nodes(Receiver).Quorum_Size then
          System.Nodes(Receiver).State := Holding;
       end if;
@@ -226,7 +238,9 @@ package body Maekawa is
    begin
       System.Nodes(Receiver).Inquired := False;
       -- Return sender to queue (with its original timestamp)
-      Put_Line("DEBUG: Handle_Yield - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(System.Nodes(Sender).Timestamp));
+      if Debug_Enable then
+         Put_Line("DEBUG: Handle_Yield - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(System.Nodes(Sender).Timestamp));
+      end if;
       Enqueue_Request(System.Nodes(Receiver).Queue, (Sender, System.Nodes(Sender).Timestamp));
       
       -- Grant vote to highest priority in queue
