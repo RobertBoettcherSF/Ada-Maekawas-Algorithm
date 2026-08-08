@@ -105,11 +105,8 @@ package body Maekawa is
       for I in 1 .. System.Nodes(Node).Quorum_Size loop
          Rcv := Valid_Node_Id(System.Nodes(Node).Quorum(I));
          if Rcv = Node then
-            -- Node implicitly votes for itself
+            -- Node implicitly counts its own vote but should NOT mark Voted/Voted_For (those represent grants to others)
             System.Nodes(Node).Replies_Count := System.Nodes(Node).Replies_Count + 1;
-            -- Also mark that this node has its own vote, consistent with remote grant behavior
-            System.Nodes(Node).Voted := True;
-            System.Nodes(Node).Voted_For := Node_Id(Node);
          else
             Enqueue_Event(System, (Kind      => Msg_Request,
                                    Sender    => Node,
@@ -117,6 +114,7 @@ package body Maekawa is
                                    Timestamp => TS));
          end if;
       end loop;
+      Put_Line("DEBUG: Request_CS - Node " & Integer'Image(Integer(Node)) & " Replies_Count=" & Natural'Image(System.Nodes(Node).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Node).Quorum_Size));
    end Request_CS;
 
    procedure Release_CS (System : in out Maekawa_System; Node : Valid_Node_Id) is
@@ -170,6 +168,7 @@ package body Maekawa is
       if not System.Nodes(Receiver).Voted then
          System.Nodes(Receiver).Voted := True;
          System.Nodes(Receiver).Voted_For := Node_Id(Sender);
+         Put_Line("DEBUG: GRANT from Receiver " & Integer'Image(Integer(Receiver)) & " -> Sender " & Integer'Image(Integer(Sender)));
          Enqueue_Event(System, (Msg_Reply, Receiver, Sender, 0));
       else
          -- DEBUG: Log enqueueing action in Handle_Request
@@ -192,6 +191,7 @@ package body Maekawa is
    procedure Handle_Reply (System : in out Maekawa_System; Sender, Receiver : Valid_Node_Id) is
    begin
       System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count + 1;
+      Put_Line("DEBUG: Handle_Reply - Receiver " & Integer'Image(Integer(Receiver)) & " Replies_Count=" & Natural'Image(System.Nodes(Receiver).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Receiver).Quorum_Size));
       if System.Nodes(Receiver).Replies_Count = System.Nodes(Receiver).Quorum_Size then
          System.Nodes(Receiver).State := Holding;
       end if;
