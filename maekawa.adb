@@ -226,6 +226,7 @@ package body Maekawa is
    begin
       System.Nodes(Receiver).Inquired := False;
       -- Return sender to queue (with its original timestamp)
+      Put_Line("DEBUG: Handle_Yield - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(System.Nodes(Sender).Timestamp));
       Enqueue_Request(System.Nodes(Receiver).Queue, (Sender, System.Nodes(Sender).Timestamp));
       
       -- Grant vote to highest priority in queue
