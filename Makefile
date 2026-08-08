@@ -9,11 +9,11 @@ all: $(BIN_DIR)/main $(BIN_DIR)/tests
 
 $(BIN_DIR)/main: main.adb maekawa.ads maekawa.adb
 	mkdir -p $(OBJ_DIR) $(BIN_DIR)
-	$(GNAT) -P maekawa.gpr -o $(BIN_DIR)/main main.adb
+	$(GNAT) -P maekawa.gpr main.adb
 
 $(BIN_DIR)/tests: tests.adb maekawa.ads maekawa.adb
 	mkdir -p $(OBJ_DIR) $(BIN_DIR)
-	$(GNAT) -P maekawa.gpr -o $(BIN_DIR)/tests tests.adb
+	$(GNAT) -P maekawa.gpr tests.adb
 
 test: $(BIN_DIR)/tests
 	@echo "==============================="
