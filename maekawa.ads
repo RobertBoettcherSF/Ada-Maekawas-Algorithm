@@ -40,7 +40,7 @@ package Maekawa is
 
    -- Node definition
    type Node_Type is record
-      Id            : Valid_Node_Id;
+      Id            : Valid_Node_Id := Valid_Node_Id'First;
       State         : Node_State := Init;
       Voted         : Boolean := False;
       Voted_For     : Node_Id := 0;
