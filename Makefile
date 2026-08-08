@@ -1,17 +1,19 @@
-# Makefile
+# Makefile (fixed)
 .PHONY: all test clean
 
 GNAT = gnatmake
 OBJ_DIR = obj
 BIN_DIR = bin
 
-all: $(BIN_DIR)/main$(BIN_DIR)/tests
+all: $(BIN_DIR)/main $(BIN_DIR)/tests
 
-$(BIN_DIR)/main: src/main.adb src/maekawa.ads src/maekawa.adb
-	mkdir -p $(OBJ_DIR) $(BIN_DIR)$(GNAT) -P maekawa.gpr src/main.adb
+$(BIN_DIR)/main: main.adb maekawa.ads maekawa.adb
+	mkdir -p $(OBJ_DIR) $(BIN_DIR)
+	$(GNAT) -P maekawa.gpr -o $(BIN_DIR)/main main.adb
 
-$(BIN_DIR)/tests: tests.adb src/maekawa.ads src/maekawa.adb
-	mkdir -p $(OBJ_DIR) $(BIN_DIR)$(GNAT) -P maekawa.gpr tests.adb
+$(BIN_DIR)/tests: tests.adb maekawa.ads maekawa.adb
+	mkdir -p $(OBJ_DIR) $(BIN_DIR)
+	$(GNAT) -P maekawa.gpr -o $(BIN_DIR)/tests tests.adb
 
 test: $(BIN_DIR)/tests
 	@echo "==============================="
@@ -20,4 +22,4 @@ test: $(BIN_DIR)/tests
 	@./$(BIN_DIR)/tests
 
 clean:
-	rm -rf $(OBJ_DIR)/*$(BIN_DIR)/*
+	rm -rf $(OBJ_DIR)/* $(BIN_DIR)/*
