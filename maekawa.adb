@@ -107,6 +107,9 @@ package body Maekawa is
          if Rcv = Node then
             -- Node implicitly votes for itself
             System.Nodes(Node).Replies_Count := System.Nodes(Node).Replies_Count + 1;
+            -- Also mark that this node has its own vote, consistent with remote grant behavior
+            System.Nodes(Node).Voted := True;
+            System.Nodes(Node).Voted_For := Node_Id(Node);
          else
             Enqueue_Event(System, (Kind      => Msg_Request,
                                    Sender    => Node,
@@ -156,7 +159,7 @@ package body Maekawa is
          when Msg_Release => Handle_Release(System, Ev.Sender, Ev.Receiver);
          when Msg_Inquire => Handle_Inquire(System, Ev.Sender, Ev.Receiver);
          when Msg_Fail    => Handle_Fail(System, Ev.Sender, Ev.Receiver);
-         when Msg_Yield   => Handle_Yield(System, Ev.Sender, Ev.Receiver);
+         when Msg_YIELD   => Handle_Yield(System, Ev.Sender, Ev.Receiver);
       end case;
    end Process_Next_Event;
 
