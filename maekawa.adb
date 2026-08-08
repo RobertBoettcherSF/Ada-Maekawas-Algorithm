@@ -92,27 +92,37 @@ package body Maekawa is
    end Dequeue_Request;
 
    procedure Request_CS (System : in out Maekawa_System; Node : Valid_Node_Id; TS : Integer) is
+      Rcv : Valid_Node_Id;
    begin
       System.Nodes(Node).State := Requesting;
       System.Nodes(Node).Timestamp := TS;
       System.Nodes(Node).Replies_Count := 0;
       
       for I in 1 .. System.Nodes(Node).Quorum_Size loop
-         Enqueue_Event(System, (Kind      => Msg_Request, 
-                                Sender    => Node, 
-                                Receiver  => Valid_Node_Id(System.Nodes(Node).Quorum(I)), 
-                                Timestamp => TS));
+         Rcv := Valid_Node_Id(System.Nodes(Node).Quorum(I));
+         -- Avoid sending a request event to self to prevent self-queuing
+         if Rcv /= Node then
+            Enqueue_Event(System, (Kind      => Msg_Request, 
+                                   Sender    => Node, 
+                                   Receiver  => Rcv, 
+                                   Timestamp => TS));
+         end if;
       end loop;
    end Request_CS;
 
    procedure Release_CS (System : in out Maekawa_System; Node : Valid_Node_Id) is
+      Rcv : Valid_Node_Id;
    begin
       System.Nodes(Node).State := Init;
       for I in 1 .. System.Nodes(Node).Quorum_Size loop
-         Enqueue_Event(System, (Kind      => Msg_Release, 
-                                Sender    => Node, 
-                                Receiver  => Valid_Node_Id(System.Nodes(Node).Quorum(I)), 
-                                Timestamp => 0));
+         Rcv := Valid_Node_Id(System.Nodes(Node).Quorum(I));
+         -- Avoid sending a release to self (handled locally)
+         if Rcv /= Node then
+            Enqueue_Event(System, (Kind      => Msg_Release, 
+                                   Sender    => Node, 
+                                   Receiver  => Rcv, 
+                                   Timestamp => 0));
+         end if;
       end loop;
    end Release_CS;
 
