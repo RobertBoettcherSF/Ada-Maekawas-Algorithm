@@ -100,15 +100,17 @@ package body Maekawa is
    begin
       System.Nodes(Node).State := Requesting;
       System.Nodes(Node).Timestamp := TS;
+      -- Count self votes if quorum includes self, and send requests only to other quorum members
       System.Nodes(Node).Replies_Count := 0;
-      
       for I in 1 .. System.Nodes(Node).Quorum_Size loop
          Rcv := Valid_Node_Id(System.Nodes(Node).Quorum(I));
-         -- Avoid sending a request event to self to prevent self-queuing
-         if Rcv /= Node then
-            Enqueue_Event(System, (Kind      => Msg_Request, 
-                                   Sender    => Node, 
-                                   Receiver  => Rcv, 
+         if Rcv = Node then
+            -- Node implicitly votes for itself
+            System.Nodes(Node).Replies_Count := System.Nodes(Node).Replies_Count + 1;
+         else
+            Enqueue_Event(System, (Kind      => Msg_Request,
+                                   Sender    => Node,
+                                   Receiver  => Rcv,
                                    Timestamp => TS));
          end if;
       end loop;
@@ -122,9 +124,9 @@ package body Maekawa is
          Rcv := Valid_Node_Id(System.Nodes(Node).Quorum(I));
          -- Avoid sending a release to self (handled locally)
          if Rcv /= Node then
-            Enqueue_Event(System, (Kind      => Msg_Release, 
-                                   Sender    => Node, 
-                                   Receiver  => Rcv, 
+            Enqueue_Event(System, (Kind      => Msg_Release,
+                                   Sender    => Node,
+                                   Receiver  => Rcv,
                                    Timestamp => 0));
          end if;
       end loop;
