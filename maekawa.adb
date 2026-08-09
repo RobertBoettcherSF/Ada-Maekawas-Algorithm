@@ -119,7 +119,7 @@ package body Maekawa is
          end if;
       end loop;
       if Debug_Enable then
-         Put_Line("DEBUG: Request_CS - Node " & Integer'Image(Integer(Node)) & " Replies_Count=" & Natural'Image(System.Nodes(Node).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nod[...]);
+         Put_Line("DEBUG: Request_CS - Node " & Integer'Image(Integer(Node)) & " Replies_Count=" & Natural'Image(System.Nodes(Node).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Node).Quorum_Size));
       end if;
    end Request_CS;
 
@@ -204,7 +204,7 @@ package body Maekawa is
    begin
       System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count + 1;
       if Debug_Enable then
-         Put_Line("DEBUG: Handle_Reply - Receiver " & Integer'Image(Integer(Receiver)) & " Replies_Count=" & Natural'Image(System.Nodes(Receiver).Replies_Count) & " Quorum_Size=" & Natural'Image([...]));
+         Put_Line("DEBUG: Handle_Reply - Receiver " & Integer'Image(Integer(Receiver)) & " Replies_Count=" & Natural'Image(System.Nodes(Receiver).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Receiver).Quorum_Size));
       end if;
       if System.Nodes(Receiver).Replies_Count = System.Nodes(Receiver).Quorum_Size then
          System.Nodes(Receiver).State := Holding;
@@ -245,7 +245,7 @@ package body Maekawa is
       System.Nodes(Receiver).Inquired := False;
       -- Return sender to queue (with its original timestamp)
       if Debug_Enable then
-         Put_Line("DEBUG: Handle_Yield - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(System.Nod[...]);
+         Put_Line("DEBUG: Handle_Yield - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(System.Nodes(Sender).Timestamp));
       end if;
       Enqueue_Request(System.Nodes(Receiver).Queue, (Sender, System.Nodes(Sender).Timestamp));
       
