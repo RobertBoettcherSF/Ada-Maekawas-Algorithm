@@ -213,10 +213,17 @@ package body Maekawa is
          -- Check priority for deadlock avoidance (lower TS = higher priority)
          Voted_Node := Valid_Node_Id(System.Nodes(Receiver).Voted_For);
          if TS < System.Nodes(Voted_Node).Timestamp then
-            if not System.Nodes(Receiver).Inquired then
-               System.Nodes(Receiver).Inquired := True;
-               Enqueue_Event(System, (Msg_Inquire, Receiver, Voted_Node, 0));
-            end if;
+-            if not System.Nodes(Receiver).Inquired then
+-               System.Nodes(Receiver).Inquired := True;
+-               Enqueue_Event(System, (Msg_Inquire, Receiver, Voted_Node, 0));
+-            end if;
++            -- Only enqueue an INQUIRE (and request a YIELD) if the current grantee
++            -- actually holds at least one reply (Replies_Count > 0). Guarding the
++            -- decrement prevents underflow of the Replies_Count (Natural).
++            if System.Nodes(Voted_Node).Replies_Count > 0 then
++               System.Nodes(Receiver).Inquired := True;
++               Enqueue_Event(System, (Msg_Inquire, Receiver, Voted_Node, 0));
++            end if;
          else
             Enqueue_Event(System, (Msg_Fail, Receiver, Sender, 0));
          end if;
@@ -257,13 +264,22 @@ package body Maekawa is
    procedure Handle_Inquire (System : in out Maekawa_System; Sender, Receiver : Valid_Node_Id) is
    begin
       -- Yield if not in CS to prevent deadlocks
-      if System.Nodes(Receiver).State = Requesting then
-         System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count - 1;
-         if Debug_Enable then
-            Put_Line("DEBUG: Handle_Inquire - Node " & Integer'Image(Integer(Receiver)) & " yields (Replies_Count now " & Natural'Image(System.Nodes(Receiver).Replies_Count) & ")");
-         end if;
-         Enqueue_Event(System, (Msg_YIELD, Receiver, Sender, 0));
-      end if;
+-      if System.Nodes(Receiver).State = Requesting then
+-         System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count - 1;
+-         if Debug_Enable then
+-            Put_Line("DEBUG: Handle_Inquire - Node " & Integer'Image(Integer(Receiver)) & " yields (Replies_Count now " & Natural'Image(System.Nodes(Receiver).Replies_Count) & ")");
+-         end if;
+-         Enqueue_Event(System, (Msg_YIELD, Receiver, Sender, 0));
+-      end if;
++      if System.Nodes(Receiver).State = Requesting and then System.Nodes(Receiver).Replies_Count > 0 then
++         -- Decrement only when there's at least one reply to yield; prevents
++         -- Natural underflow/CONSTRAINT_ERROR.
++         System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count - 1;
++         if Debug_Enable then
++            Put_Line("DEBUG: Handle_Inquire - Node " & Integer'Image(Integer(Receiver)) & " yields (Replies_Count now " & Natural'Image(System.Nodes(Receiver).Replies_Count) & ")");
++         end if;
++         Enqueue_Event(System, (Msg_YIELD, Receiver, Sender, 0));
++      end if;
    end Handle_Inquire;
 
    procedure Handle_Yield (System : in out Maekawa_System; Sender, Receiver : Valid_Node_Id) is
