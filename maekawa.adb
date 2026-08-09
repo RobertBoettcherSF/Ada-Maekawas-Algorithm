@@ -119,7 +119,7 @@ package body Maekawa is
          end if;
       end loop;
       if Debug_Enable then
-         Put_Line("DEBUG: Request_CS - Node " & Integer'Image(Integer(Node)) & " Replies_Count=" & Natural'Image(System.Nodes(Node).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Node).Quorum_Size));
+         Put_Line("DEBUG: Request_CS - Node " & Integer'Image(Integer(Node)) & " Replies_Count=" & Natural'Image(System.Nodes(Node).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nod[...]);
       end if;
    end Request_CS;
 
@@ -127,6 +127,8 @@ package body Maekawa is
       Rcv : Valid_Node_Id;
    begin
       System.Nodes(Node).State := Init;
+      -- reset replies count on release so subsequent requests start fresh
+      System.Nodes(Node).Replies_Count := 0;
       for I in 1 .. System.Nodes(Node).Quorum_Size loop
          Rcv := Valid_Node_Id(System.Nodes(Node).Quorum(I));
          -- Avoid sending a release to self (handled locally)
@@ -202,7 +204,7 @@ package body Maekawa is
    begin
       System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count + 1;
       if Debug_Enable then
-         Put_Line("DEBUG: Handle_Reply - Receiver " & Integer'Image(Integer(Receiver)) & " Replies_Count=" & Natural'Image(System.Nodes(Receiver).Replies_Count) & " Quorum_Size=" & Natural'Image(System.Nodes(Receiver).Quorum_Size));
+         Put_Line("DEBUG: Handle_Reply - Receiver " & Integer'Image(Integer(Receiver)) & " Replies_Count=" & Natural'Image(System.Nodes(Receiver).Replies_Count) & " Quorum_Size=" & Natural'Image([...]));
       end if;
       if System.Nodes(Receiver).Replies_Count = System.Nodes(Receiver).Quorum_Size then
          System.Nodes(Receiver).State := Holding;
@@ -216,6 +218,8 @@ package body Maekawa is
          Dequeue_Request(System.Nodes(Receiver).Queue, Next_Req);
          System.Nodes(Receiver).Voted_For := Node_Id(Next_Req.Node);
          System.Nodes(Receiver).Inquired := False;
+         -- Ensure voter is marked as having granted a vote
+         System.Nodes(Receiver).Voted := True;
          Enqueue_Event(System, (Msg_Reply, Receiver, Next_Req.Node, 0));
       else
          System.Nodes(Receiver).Voted := False;
@@ -236,16 +240,20 @@ package body Maekawa is
    procedure Handle_Yield (System : in out Maekawa_System; Sender, Receiver : Valid_Node_Id) is
       Next_Req : Queue_Item;
    begin
+      -- Sender = grantee (the node that yielded)
+      -- Receiver = voter (the node that had issued the INQUIRE)
       System.Nodes(Receiver).Inquired := False;
       -- Return sender to queue (with its original timestamp)
       if Debug_Enable then
-         Put_Line("DEBUG: Handle_Yield - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(System.Nodes(Sender).Timestamp));
+         Put_Line("DEBUG: Handle_Yield - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(System.Nod[...]);
       end if;
       Enqueue_Request(System.Nodes(Receiver).Queue, (Sender, System.Nodes(Sender).Timestamp));
       
       -- Grant vote to highest priority in queue
       Dequeue_Request(System.Nodes(Receiver).Queue, Next_Req);
       System.Nodes(Receiver).Voted_For := Node_Id(Next_Req.Node);
+      -- Ensure voter marked as having granted a vote
+      System.Nodes(Receiver).Voted := True;
       Enqueue_Event(System, (Msg_Reply, Receiver, Next_Req.Node, 0));
    end Handle_Yield;
 
