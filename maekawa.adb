@@ -2,7 +2,7 @@ with Ada.Text_IO; use Ada.Text_IO;
 -- src/maekawa.adb
 package body Maekawa is
 
-   Debug_Enable : constant Boolean := True;
+   Debug_Enable : constant Boolean := False;
 
    procedure Initialize (System : out Maekawa_System) is
    begin
@@ -30,11 +30,11 @@ package body Maekawa is
          Row_I := (Integer(I) - 1) / K;
          Col_I := (Integer(I) - 1) mod K;
          Idx := 1;
-         
+
          for J in Valid_Node_Id loop
             Row_J := (Integer(J) - 1) / K;
             Col_J := (Integer(J) - 1) mod K;
-            
+
             if Row_I = Row_J or Col_I = Col_J then
                System.Nodes(I).Quorum(Idx) := Node_Id(J);
                Idx := Idx + 1;
@@ -58,14 +58,14 @@ package body Maekawa is
 
    -- Event Queue Management
    procedure Enqueue_Event (System : in out Maekawa_System; Ev : Event_Type) is
+      I : Integer;
    begin
       if System.Events.Count >= Max_Events then
          raise Capacity_Error with "Event queue full";
       end if;
 
-      -- Inquire and Yield messages are urgent for deadlock avoidance; place them at the
-      -- front of the event queue so they are processed immediately.
-      if Ev.Kind = Msg_Inquire or Ev.Kind = Msg_YIELD then
+      -- Inquire and Yield messages are treated as urgent: place at front so they run promptly.
+      if Ev.Kind = Msg_Inquire or Ev.Kind = Msg_Yield then
          System.Events.Count := System.Events.Count + 1;
          for I in reverse 2 .. System.Events.Count loop
             System.Events.Items(I) := System.Events.Items(I - 1);
@@ -86,17 +86,19 @@ package body Maekawa is
    -- Priority Queue Management for Node Requests (Sorted by Timestamp ASC)
    procedure Enqueue_Request (Q : in out Request_Queue; Item : Queue_Item) is
       Temp : Queue_Item;
+      I    : Integer;
    begin
-      if Q.Count >= Max_Queue then return; end if;
+      if Q.Count >= Max_Queue then
+         return;
+      end if;
       Q.Count := Q.Count + 1;
       Q.Items(Q.Count) := Item;
-      -- DEBUG: print enqueue info
       if Debug_Enable then
          Put_Line("DEBUG: Enqueue_Request -> New Count = " & Natural'Image(Q.Count));
          Put_Line("DEBUG: Enqueue_Request -> Item.Node = " & Integer'Image(Integer(Item.Node)) & " Item.Timestamp = " & Integer'Image(Item.Timestamp));
       end if;
-      
-      -- Bubble sort to maintain priority (lower timestamp = higher priority)
+
+      -- Bubble-up to keep ascending timestamp order
       for I in reverse 2 .. Q.Count loop
          if Q.Items(I).Timestamp < Q.Items(I - 1).Timestamp then
             Temp := Q.Items(I);
@@ -107,8 +109,11 @@ package body Maekawa is
    end Enqueue_Request;
 
    procedure Dequeue_Request (Q : in out Request_Queue; Item : out Queue_Item) is
+      I : Integer;
    begin
-      if Q.Count = 0 then raise Capacity_Error; end if;
+      if Q.Count = 0 then
+         raise Capacity_Error;
+      end if;
       Item := Q.Items(1);
       for I in 1 .. Q.Count - 1 loop
          Q.Items(I) := Q.Items(I + 1);
@@ -121,18 +126,13 @@ package body Maekawa is
    begin
       System.Nodes(Node).State := Requesting;
       System.Nodes(Node).Timestamp := TS;
-      -- Count self votes if quorum includes self, and send requests only to other quorum members
       System.Nodes(Node).Replies_Count := 0;
       for I in 1 .. System.Nodes(Node).Quorum_Size loop
          Rcv := Valid_Node_Id(System.Nodes(Node).Quorum(I));
          if Rcv = Node then
-            -- Node implicitly counts its own vote but should NOT mark Voted/Voted_For (those represent grants to others)
             System.Nodes(Node).Replies_Count := System.Nodes(Node).Replies_Count + 1;
          else
-            Enqueue_Event(System, (Kind      => Msg_Request,
-                                   Sender    => Node,
-                                   Receiver  => Rcv,
-                                   Timestamp => TS));
+            Enqueue_Event(System, (Kind => Msg_Request, Sender => Node, Receiver => Rcv, Timestamp => TS));
          end if;
       end loop;
       if Debug_Enable then
@@ -144,16 +144,11 @@ package body Maekawa is
       Rcv : Valid_Node_Id;
    begin
       System.Nodes(Node).State := Init;
-      -- reset replies count on release so subsequent requests start fresh
       System.Nodes(Node).Replies_Count := 0;
       for I in 1 .. System.Nodes(Node).Quorum_Size loop
          Rcv := Valid_Node_Id(System.Nodes(Node).Quorum(I));
-         -- Avoid sending a release to self (handled locally)
          if Rcv /= Node then
-            Enqueue_Event(System, (Kind      => Msg_Release,
-                                   Sender    => Node,
-                                   Receiver  => Rcv,
-                                   Timestamp => 0));
+            Enqueue_Event(System, (Kind => Msg_Release, Sender => Node, Receiver => Rcv, Timestamp => 0));
          end if;
       end loop;
    end Release_CS;
@@ -167,9 +162,12 @@ package body Maekawa is
 
    procedure Process_Next_Event (System : in out Maekawa_System) is
       Ev : Event_Type;
+      I  : Integer;
    begin
-      if System.Events.Count = 0 then return; end if;
-      
+      if System.Events.Count = 0 then
+         return;
+      end if;
+
       Ev := System.Events.Items(1);
       for I in 1 .. System.Events.Count - 1 loop
          System.Events.Items(I) := System.Events.Items(I + 1);
@@ -188,7 +186,7 @@ package body Maekawa is
          when Msg_Release => Handle_Release(System, Ev.Sender, Ev.Receiver);
          when Msg_Inquire => Handle_Inquire(System, Ev.Sender, Ev.Receiver);
          when Msg_Fail    => Handle_Fail(System, Ev.Sender, Ev.Receiver);
-         when Msg_YIELD   => Handle_Yield(System, Ev.Sender, Ev.Receiver);
+         when Msg_Yield   => Handle_Yield(System, Ev.Sender, Ev.Receiver);
       end case;
    end Process_Next_Event;
 
@@ -202,30 +200,22 @@ package body Maekawa is
          if Debug_Enable then
             Put_Line("DEBUG: GRANT from Receiver " & Integer'Image(Integer(Receiver)) & " -> Sender " & Integer'Image(Integer(Sender)));
          end if;
-         Enqueue_Event(System, (Msg_Reply, Receiver, Sender, 0));
+         Enqueue_Event(System, (Kind => Msg_Reply, Sender => Receiver, Receiver => Sender, Timestamp => 0));
       else
-         -- DEBUG: Log enqueueing action in Handle_Request
          if Debug_Enable then
             Put_Line("DEBUG: Handle_Request - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(TS));
          end if;
-         Enqueue_Request(System.Nodes(Receiver).Queue, (Sender, TS));
-         
-         -- Check priority for deadlock avoidance (lower TS = higher priority)
+         Enqueue_Request(System.Nodes(Receiver).Queue, (Node => Sender, Timestamp => TS));
+
          Voted_Node := Valid_Node_Id(System.Nodes(Receiver).Voted_For);
          if TS < System.Nodes(Voted_Node).Timestamp then
--            if not System.Nodes(Receiver).Inquired then
--               System.Nodes(Receiver).Inquired := True;
--               Enqueue_Event(System, (Msg_Inquire, Receiver, Voted_Node, 0));
--            end if;
-+            -- Only enqueue an INQUIRE (and request a YIELD) if the current grantee
-+            -- actually holds at least one reply (Replies_Count > 0). Guarding the
-+            -- decrement prevents underflow of the Replies_Count (Natural).
-+            if System.Nodes(Voted_Node).Replies_Count > 0 then
-+               System.Nodes(Receiver).Inquired := True;
-+               Enqueue_Event(System, (Msg_Inquire, Receiver, Voted_Node, 0));
-+            end if;
+            -- Only enqueue an INQUIRE if the current grantee has at least one reply to yield
+            if System.Nodes(Voted_Node).Replies_Count > 0 then
+               System.Nodes(Receiver).Inquired := True;
+               Enqueue_Event(System, (Kind => Msg_Inquire, Sender => Receiver, Receiver => Voted_Node, Timestamp => 0));
+            end if;
          else
-            Enqueue_Event(System, (Msg_Fail, Receiver, Sender, 0));
+            Enqueue_Event(System, (Kind => Msg_Fail, Sender => Receiver, Receiver => Sender, Timestamp => 0));
          end if;
       end if;
    end Handle_Request;
@@ -248,12 +238,11 @@ package body Maekawa is
          Dequeue_Request(System.Nodes(Receiver).Queue, Next_Req);
          System.Nodes(Receiver).Voted_For := Node_Id(Next_Req.Node);
          System.Nodes(Receiver).Inquired := False;
-         -- Ensure voter is marked as having granted a vote
          System.Nodes(Receiver).Voted := True;
          if Debug_Enable then
             Put_Line("DEBUG: Handle_Release - Voter " & Integer'Image(Integer(Receiver)) & " grants to Node " & Integer'Image(Integer(Next_Req.Node)));
          end if;
-         Enqueue_Event(System, (Msg_Reply, Receiver, Next_Req.Node, 0));
+         Enqueue_Event(System, (Kind => Msg_Reply, Sender => Receiver, Receiver => Next_Req.Node, Timestamp => 0));
       else
          System.Nodes(Receiver).Voted := False;
          System.Nodes(Receiver).Voted_For := 0;
@@ -264,22 +253,13 @@ package body Maekawa is
    procedure Handle_Inquire (System : in out Maekawa_System; Sender, Receiver : Valid_Node_Id) is
    begin
       -- Yield if not in CS to prevent deadlocks
--      if System.Nodes(Receiver).State = Requesting then
--         System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count - 1;
--         if Debug_Enable then
--            Put_Line("DEBUG: Handle_Inquire - Node " & Integer'Image(Integer(Receiver)) & " yields (Replies_Count now " & Natural'Image(System.Nodes(Receiver).Replies_Count) & ")");
--         end if;
--         Enqueue_Event(System, (Msg_YIELD, Receiver, Sender, 0));
--      end if;
-+      if System.Nodes(Receiver).State = Requesting and then System.Nodes(Receiver).Replies_Count > 0 then
-+         -- Decrement only when there's at least one reply to yield; prevents
-+         -- Natural underflow/CONSTRAINT_ERROR.
-+         System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count - 1;
-+         if Debug_Enable then
-+            Put_Line("DEBUG: Handle_Inquire - Node " & Integer'Image(Integer(Receiver)) & " yields (Replies_Count now " & Natural'Image(System.Nodes(Receiver).Replies_Count) & ")");
-+         end if;
-+         Enqueue_Event(System, (Msg_YIELD, Receiver, Sender, 0));
-+      end if;
+      if System.Nodes(Receiver).State = Requesting and then System.Nodes(Receiver).Replies_Count > 0 then
+         System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count - 1;
+         if Debug_Enable then
+            Put_Line("DEBUG: Handle_Inquire - Node " & Integer'Image(Integer(Receiver)) & " yields (Replies_Count now " & Natural'Image(System.Nodes(Receiver).Replies_Count) & ")");
+         end if;
+         Enqueue_Event(System, (Kind => Msg_Yield, Sender => Receiver, Receiver => Sender, Timestamp => 0));
+      end if;
    end Handle_Inquire;
 
    procedure Handle_Yield (System : in out Maekawa_System; Sender, Receiver : Valid_Node_Id) is
@@ -288,21 +268,18 @@ package body Maekawa is
       -- Sender = grantee (the node that yielded)
       -- Receiver = voter (the node that had issued the INQUIRE)
       System.Nodes(Receiver).Inquired := False;
-      -- Return sender to queue (with its original timestamp)
       if Debug_Enable then
          Put_Line("DEBUG: Handle_Yield - Enqueueing Sender " & Integer'Image(Integer(Sender)) & " into Receiver " & Integer'Image(Integer(Receiver)) & " queue with TS " & Integer'Image(System.Nodes(Sender).Timestamp));
       end if;
-      Enqueue_Request(System.Nodes(Receiver).Queue, (Sender, System.Nodes(Sender).Timestamp));
-      
-      -- Grant vote to highest priority in queue
+      Enqueue_Request(System.Nodes(Receiver).Queue, (Node => Sender, Timestamp => System.Nodes(Sender).Timestamp));
+
       Dequeue_Request(System.Nodes(Receiver).Queue, Next_Req);
       System.Nodes(Receiver).Voted_For := Node_Id(Next_Req.Node);
-      -- Ensure voter marked as having granted a vote
       System.Nodes(Receiver).Voted := True;
       if Debug_Enable then
          Put_Line("DEBUG: Handle_Yield - Voter " & Integer'Image(Integer(Receiver)) & " grants to Node " & Integer'Image(Integer(Next_Req.Node)));
       end if;
-      Enqueue_Event(System, (Msg_Reply, Receiver, Next_Req.Node, 0));
+      Enqueue_Event(System, (Kind => Msg_Reply, Sender => Receiver, Receiver => Next_Req.Node, Timestamp => 0));
    end Handle_Yield;
 
    procedure Handle_Fail (System : in out Maekawa_System; Sender, Receiver : Valid_Node_Id) is
