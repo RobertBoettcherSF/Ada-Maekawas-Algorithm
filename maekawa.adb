@@ -79,7 +79,7 @@ package body Maekawa is
       if Debug_Enable then
          Put_Line("DEBUG: Enqueue_Event -> Sender=" & Integer'Image(Integer(Ev.Sender)) &
                   " Receiver=" & Integer'Image(Integer(Ev.Receiver)) &
-                  " TS=" & Integer'Image(Ev.Timestamp) & " Kind=" & Integer'Image(Integer(Ev.Kind)));
+                  " TS=" & Integer'Image(Ev.Timestamp) & " Kind=" & Message_Kind'Image(Ev.Kind));
       end if;
    end Enqueue_Event;
 
@@ -262,7 +262,7 @@ package body Maekawa is
          if Debug_Enable then
             Put_Line("DEBUG: Handle_Inquire - Node " & Integer'Image(Integer(Receiver)) & " yields (Replies_Count now " & Natural'Image(System.Nodes(Receiver).Replies_Count) & ")");
          end if;
-         Enqueue_Event(System, (Msg_Yield, Receiver, Sender, 0));
+         Enqueue_Event(System, (Msg_YIELD, Receiver, Sender, 0));
       end if;
    end Handle_Inquire;
 
