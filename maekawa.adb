@@ -62,12 +62,24 @@ package body Maekawa is
       if System.Events.Count >= Max_Events then
          raise Capacity_Error with "Event queue full";
       end if;
-      System.Events.Count := System.Events.Count + 1;
-      System.Events.Items(System.Events.Count) := Ev;
+
+      -- Inquire and Yield messages are urgent for deadlock avoidance; place them at the
+      -- front of the event queue so they are processed immediately.
+      if Ev.Kind = Msg_Inquire or Ev.Kind = Msg_YIELD then
+         System.Events.Count := System.Events.Count + 1;
+         for I in reverse 2 .. System.Events.Count loop
+            System.Events.Items(I) := System.Events.Items(I - 1);
+         end loop;
+         System.Events.Items(1) := Ev;
+      else
+         System.Events.Count := System.Events.Count + 1;
+         System.Events.Items(System.Events.Count) := Ev;
+      end if;
+
       if Debug_Enable then
          Put_Line("DEBUG: Enqueue_Event -> Sender=" & Integer'Image(Integer(Ev.Sender)) &
                   " Receiver=" & Integer'Image(Integer(Ev.Receiver)) &
-                  " TS=" & Integer'Image(Ev.Timestamp));
+                  " TS=" & Integer'Image(Ev.Timestamp) & " Kind=" & Integer'Image(Integer(Ev.Kind)));
       end if;
    end Enqueue_Event;
 
