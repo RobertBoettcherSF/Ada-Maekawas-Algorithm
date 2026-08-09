@@ -2,7 +2,7 @@ with Ada.Text_IO; use Ada.Text_IO;
 -- src/maekawa.adb
 package body Maekawa is
 
-   Debug_Enable : constant Boolean := False;
+   Debug_Enable : constant Boolean := True;
 
    procedure Initialize (System : out Maekawa_System) is
    begin
@@ -64,6 +64,11 @@ package body Maekawa is
       end if;
       System.Events.Count := System.Events.Count + 1;
       System.Events.Items(System.Events.Count) := Ev;
+      if Debug_Enable then
+         Put_Line("DEBUG: Enqueue_Event -> Sender=" & Integer'Image(Integer(Ev.Sender)) &
+                  " Receiver=" & Integer'Image(Integer(Ev.Receiver)) &
+                  " TS=" & Integer'Image(Ev.Timestamp));
+      end if;
    end Enqueue_Event;
 
    -- Priority Queue Management for Node Requests (Sorted by Timestamp ASC)
@@ -159,6 +164,12 @@ package body Maekawa is
       end loop;
       System.Events.Count := System.Events.Count - 1;
 
+      if Debug_Enable then
+         Put_Line("DEBUG: Process_Next_Event -> Sender=" & Integer'Image(Integer(Ev.Sender)) &
+                  " Receiver=" & Integer'Image(Integer(Ev.Receiver)) &
+                  " TS=" & Integer'Image(Ev.Timestamp));
+      end if;
+
       case Ev.Kind is
          when Msg_Request => Handle_Request(System, Ev.Sender, Ev.Receiver, Ev.Timestamp);
          when Msg_Reply   => Handle_Reply(System, Ev.Sender, Ev.Receiver);
@@ -220,6 +231,9 @@ package body Maekawa is
          System.Nodes(Receiver).Inquired := False;
          -- Ensure voter is marked as having granted a vote
          System.Nodes(Receiver).Voted := True;
+         if Debug_Enable then
+            Put_Line("DEBUG: Handle_Release - Voter " & Integer'Image(Integer(Receiver)) & " grants to Node " & Integer'Image(Integer(Next_Req.Node)));
+         end if;
          Enqueue_Event(System, (Msg_Reply, Receiver, Next_Req.Node, 0));
       else
          System.Nodes(Receiver).Voted := False;
@@ -233,6 +247,9 @@ package body Maekawa is
       -- Yield if not in CS to prevent deadlocks
       if System.Nodes(Receiver).State = Requesting then
          System.Nodes(Receiver).Replies_Count := System.Nodes(Receiver).Replies_Count - 1;
+         if Debug_Enable then
+            Put_Line("DEBUG: Handle_Inquire - Node " & Integer'Image(Integer(Receiver)) & " yields (Replies_Count now " & Natural'Image(System.Nodes(Receiver).Replies_Count) & ")");
+         end if;
          Enqueue_Event(System, (Msg_Yield, Receiver, Sender, 0));
       end if;
    end Handle_Inquire;
@@ -254,6 +271,9 @@ package body Maekawa is
       System.Nodes(Receiver).Voted_For := Node_Id(Next_Req.Node);
       -- Ensure voter marked as having granted a vote
       System.Nodes(Receiver).Voted := True;
+      if Debug_Enable then
+         Put_Line("DEBUG: Handle_Yield - Voter " & Integer'Image(Integer(Receiver)) & " grants to Node " & Integer'Image(Integer(Next_Req.Node)));
+      end if;
       Enqueue_Event(System, (Msg_Reply, Receiver, Next_Req.Node, 0));
    end Handle_Yield;
 
