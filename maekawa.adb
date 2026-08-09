@@ -58,7 +58,6 @@ package body Maekawa is
 
    -- Event Queue Management
    procedure Enqueue_Event (System : in out Maekawa_System; Ev : Event_Type) is
-      I : Integer;
    begin
       if System.Events.Count >= Max_Events then
          raise Capacity_Error with "Event queue full";
@@ -86,7 +85,6 @@ package body Maekawa is
    -- Priority Queue Management for Node Requests (Sorted by Timestamp ASC)
    procedure Enqueue_Request (Q : in out Request_Queue; Item : Queue_Item) is
       Temp : Queue_Item;
-      I    : Integer;
    begin
       if Q.Count >= Max_Queue then
          return;
@@ -109,7 +107,6 @@ package body Maekawa is
    end Enqueue_Request;
 
    procedure Dequeue_Request (Q : in out Request_Queue; Item : out Queue_Item) is
-      I : Integer;
    begin
       if Q.Count = 0 then
          raise Capacity_Error;
@@ -162,7 +159,6 @@ package body Maekawa is
 
    procedure Process_Next_Event (System : in out Maekawa_System) is
       Ev : Event_Type;
-      I  : Integer;
    begin
       if System.Events.Count = 0 then
          return;
